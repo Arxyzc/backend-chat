@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 dotenv.config();
+console.log(process.env.ORIGIN);
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
@@ -18,7 +19,8 @@ const databaseURL = process.env.DATABASE_URL;
 
 app.use(
     cors({
-        origin: [process.env.ORIGIN],
+        //origin: [process.env.ORIGIN],
+        origin: ["https://chatdemo-react.netlify.app"],
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
         credentials: true, // Esto permite compartir credenciales
         allowedHeaders: ["Content-Type", "Authorization"],
