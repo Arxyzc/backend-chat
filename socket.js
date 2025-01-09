@@ -1,3 +1,90 @@
+import { Server as SocketIOServer } from "socket.io";
+import Message from "./models/MessagesModel.js";
+import Channel from "./models/ChannelModel.js";
+
+const EVENTS = {
+    CONNECTION: "connection",
+    DISCONNECT: "disconnect",
+    SEND_MESSAGE: "sendMessage",
+    RECIEVE_MESSAGE: "recieveMessage",
+    SEND_CHANNEL_MESSAGE: "send-channel-message",
+    RECIEVE_CHANNEL_MESSAGE: "recieve-channel-message",
+};
+
+const setupSocket = (server) => {
+    const io = new SocketIOServer(server, {
+        cors: {
+            origin: [
+                "http://localhost:5173",
+                "https://chatdemo-react.netlify.app",
+            ],
+            methods: ["GET", "POST"],
+            credentials: true,
+        },
+    });
+
+    const userSocketMap = new Map();
+
+    const disconnect = (socket) => {
+        console.log(`Cliente Desconectado: ${socket.id}`);
+        for (const [userId, socketId] of userSocketMap.entries()) {
+            if (socketId === socket.id) {
+                userSocketMap.delete(userId);
+                break;
+            }
+        }
+    };
+
+    const sendMessage = async (message) => {
+        try {
+            const senderSocketId = userSocketMap.get(message.sender);
+            const recipientSocketId = userSocketMap.get(message.recipient);
+
+            const createdMessage = await Message.create(message);
+
+            const messageData = await Message.findById(createdMessage._id)
+                .populate("sender", "id email firstName lastName image color")
+                .populate("recipient", "id email firstName lastName image color");
+
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit(EVENTS.RECIEVE_MESSAGE, messageData);
+            }
+            if (senderSocketId) {
+                io.to(senderSocketId).emit(EVENTS.RECIEVE_MESSAGE, messageData);
+            }
+        } catch (error) {
+            console.error("Error al enviar el mensaje:", error);
+        }
+    };
+
+    const sendChannelMessage = async (message) => {
+        // Igual que tu lógica actual, añadiendo manejo de errores.
+    };
+
+    io.on(EVENTS.CONNECTION, (socket) => {
+        const userId = socket.handshake.query.userId;
+
+        if (!userId) {
+            console.log("ID de usuario no proporcionado. Cerrando conexión.");
+            socket.disconnect(true);
+            return;
+        }
+
+        userSocketMap.set(userId, socket.id);
+        console.log(`Usuario conectado: ${userId} con ID: ${socket.id}`);
+
+        socket.on(EVENTS.SEND_MESSAGE, sendMessage);
+        socket.on(EVENTS.SEND_CHANNEL_MESSAGE, sendChannelMessage);
+        socket.on(EVENTS.DISCONNECT, () => disconnect(socket));
+    });
+};
+
+export default setupSocket;
+
+/*import { Server as SocketIOServer } from "socket.io";
+import Message from "./models/MessagesModel.js";
+import Channel from "./models/ChannelModel.js";
+
 const setupSocket = (server) => {
     const io = new SocketIOServer(server, {
         cors: {
@@ -94,7 +181,7 @@ const setupSocket = (server) => {
     });
 };
 
-export default setupSocket;
+export default setupSocket;*/
 
 /*import { Server as SocketIOServer } from "socket.io";
 import Message from "./models/MessagesModel.js";
